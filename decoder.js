@@ -163,8 +163,8 @@ function decode_config_request(bytes) {
 		case 1: decoded.type = "general_config_request"; break;
 		default: decoded.type = "config_request";
 	}
-	decoded.usage_interval = parseInt(bufferToHex(bytes.slice(1, 3)),16);
-	decoded.status_interval = parseInt(bufferToHex(bytes.slice(2, 4).reverse()),16);
+	decoded.usage_interval = parseInt(bufferToHex(bytes.slice(2, 3).reverse()),16);
+	decoded.status_interval = parseInt(bufferToHex(bytes.slice(4, 5).reverse()),16);
 	decoded.usage_sent = bytes[4] >> 0 & 1 == 1;
 	decoded.usage_sent_string = decoded.usage_sent?"always":"if new data";
 	return decoded; 
