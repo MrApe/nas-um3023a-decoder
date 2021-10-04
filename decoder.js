@@ -9,11 +9,14 @@
 
 function Decoder(b, fport) {
 	var decoded = {};
-	var bytes = Array.from(b);
+	var bytes = [];
+	for (var i in b) {
+		bytes.push(b[i]);
+	}
 	switch (fport) {
 		case 24: //status
 			decoded = decode_status(bytes.slice());
-			decoded.type="status;"
+			decoded.type="status";
 			break;
 		case 25: //usage
 			decoded = decode_usage(bytes.slice());
@@ -21,26 +24,89 @@ function Decoder(b, fport) {
 			break;
 		case 49: //config_request
 			decoded = decode_config_request(bytes.slice());
-			decoded.type="config_request";
 			break;
 		case 99: //debug_boot
 			decoded = decode_debug_boot(bytes.slice());
 			decoded.type="debug_boot";
 			break;
 	}
-	decoded.bytes = bufferToHex(b);
+	decoded.bytes = "0x"+ bufferToHex(b);
+	decoded.size = b.length;
 	decoded.fport = fport;
 	return decoded;
 }
 
 function decode_status(bytes) {
 	var decoded = {};
-	decoded.digital_1_reported = bytes[0] >> 0 & 1 == 1;
-	decoded.digital_2_reported = bytes[0] >> 1 & 1 == 1;
-	decoded.digital_3_reported = bytes[0] >> 2 & 1 == 1;
-	decoded.digital_4_reported = bytes[0] >> 3 & 1 == 1;
-	decoded.user_triggered_packet = bytes[0] >> 6 & 1 == 1;
-	decoded.active_alerts = bytes[0] >> 7 & 1 == 1;
+	var byte_index = 0;
+	var inputs = 
+			{
+				digital_1: { name:"digital_1", payload_size: 8, index: 0 },
+				digital_2: { name:"digital_2", payload_size: 8, index: 1 },
+				analog_1: { name:"analog_1",  payload_size: 8, index: 2 },
+				analog_2: { name:"analog_2", payload_size: 8, index: 3 }
+			};
+	var reported_inputs = [];
+	for (var input in inputs) {
+		decoded[input + "_reported"] = bytes[0] >> inputs[input].index & 1 == 1;
+		if (decoded[input + "_reported"]) {
+			reported_inputs.push(input);
+		}
+	}
+	decoded.user_triggered_packet = bytes[byte_index] >> 6 & 1 == 1;
+	decoded.active_alerts = bytes[byte_index] >> 7 & 1 == 1;
+	if (decoded.active_alerts) {
+		byte_index++;
+		decoded.digital_interface_alert = bytes[byte_index] >> 0 & 1 == 1;
+		decoded.secondary_interface_alert = bytes[byte_index] >> 1 & 1 == 1;
+		decoded.temperature_alert = bytes[byte_index] >> 2 & 1 == 1;
+	}
+	byte_index++;
+	decoded.battery_percentage = (bytes[byte_index] - 1) / 2.54;
+	byte_index++;
+	decoded.battery_index = bytes[byte_index];
+	byte_index++;
+	decoded.mcu_temp = bytes[byte_index];
+	byte_index++;
+	decoded.min_mcu_temp = ( bytes[byte_index] & 15 ) * -2;
+	decoded.max_mcu_temp = ( bytes[byte_index] >> 4 ) * 2;
+	byte_index++;
+	decoded.downlink_rssi = bytes[byte_index] * -1;
+
+	byte_index++;
+	for (var input in reported_inputs) {
+		decoded[reported_inputs[input]+"_input_state"] = 
+				bytes[byte_index+input] >> 0 & 1 == 1;
+		decoded[reported_inputs[input]+"_input_state_string"] = 
+				decoded[reported_inputs[input]+"_input_state"]?"closed":"open";
+		decoded[reported_inputs[input]+"_operational_mode"] = 
+				bytes[byte_index+input] >> 1 & 1 == 1;
+		decoded[reported_inputs[input]+"_operational_mode_string"] = 
+				decoded[reported_inputs[input]+"_operational_mode"]?"trigger_mode":"pulse_mode";
+		decoded[reported_inputs[input]+"_alert_state"] = 
+				bytes[byte_index+input] >> 2 & 1 == 1;
+		decoded[reported_inputs[input]+"_alert_state_string"] = 
+		decoded[reported_inputs[input]+"_alert_state"]?"on":"off";
+		decoded[reported_inputs[input]+"_device_serial_sent"] = 
+		bytes[byte_index+input] >> 3 & 1 == 1;
+		decoded[reported_inputs[input]+"_medium_type"] = 
+				bytes[byte_index+input] >> 4;
+		switch (decoded[reported_inputs[input]+"_medium_type"]) {
+			case 0: decoded[reported_inputs[input]+"_medium_type_string"] = "n/a_"; break; 
+			case 1: decoded[reported_inputs[input]+"_medium_type_string"] = "pulses_"; break;
+			case 2: decoded[reported_inputs[input]+"_medium_type_string"] = "water_L"; break;
+			case 3: decoded[reported_inputs[input]+"_medium_type_string"] = "electricity_Wh"; break;
+			case 4: decoded[reported_inputs[input]+"_medium_type_string"] = "gas_L"; break;
+			case 5: decoded[reported_inputs[input]+"_medium_type_string"] = "heat_Wh"; break;
+			default: decoded[reported_inputs[input]+"_medium_type_string"] = ""; break;
+		}
+		var payload_size = inputs[reported_inputs[input]].payload_size;
+		var from = byte_index + 1 + ( Number(input) * payload_size ) + Number(input);
+		var to = from + payload_size;
+		var hex = bytes.slice(from, to);
+		var value = parseInt(bufferToHex(hex.reverse()),16);
+		decoded[reported_inputs[input]] = value;
+	}
 	//TODO: report other bytes
 	return decoded; 
 }
@@ -65,7 +131,7 @@ function decode_usage(bytes) {
 	for (var input in reported_inputs) {
 		decoded[reported_inputs[input]+"_input_state"] = bytes[input+1] >> 0 & 1 == 1;
 		decoded[reported_inputs[input]+"_input_state_string"] = decoded[reported_inputs[input]+"_input_state"]?"closed":"open";
-		decoded[reported_inputs[input]+"_operational_mode"] = bytes[input+1] >> 0 & 1 == 1;
+		decoded[reported_inputs[input]+"_operational_mode"] = bytes[input+1] >> 1 & 1 == 1;
 		decoded[reported_inputs[input]+"_operational_mode_string"] = decoded[reported_inputs[input]+"_operational_mode"]?"trigger_mode":"pulse_mode";
 		decoded[reported_inputs[input]+"_medium_type"] = bytes[input+1] >> 4;
 		switch (decoded[reported_inputs[input]+"_medium_type"]) {
@@ -91,6 +157,16 @@ function decode_usage(bytes) {
 
 function decode_config_request(bytes) {
 	var decoded = {};
+	decoded.message_header = bytes[0];
+	switch (decoded.message_header) {
+		case 0: decoded.type = "reporting_config_request"; break;
+		case 1: decoded.type = "general_config_request"; break;
+		default: decoded.type = "config_request";
+	}
+	decoded.usage_interval = parseInt(bufferToHex(bytes.slice(1, 3)),16);
+	decoded.status_interval = parseInt(bufferToHex(bytes.slice(2, 4).reverse()),16);
+	decoded.usage_sent = bytes[4] >> 0 & 1 == 1;
+	decoded.usage_sent_string = decoded.usage_sent?"always":"if new data";
 	return decoded; 
 }
 
@@ -119,7 +195,9 @@ function bcdtonumber(bytes) {
 
 function bufferToHex(buffer) {
     var s = '', h = '0123456789ABCDEF';
-    (new Uint8Array(buffer)).forEach((v) => { s += h[v >> 4] + h[v & 15]; });
+    for (var byte = 0; byte < buffer.length; byte++) {
+		s += h[buffer[byte] >> 4] + h[buffer[byte] & 15]; 
+	};
     return s;
 }
 
@@ -150,4 +228,3 @@ function Decode(fPort, bytes, variables) {
 try {
     console.log(Decoder(Buffer.from(process.argv[2], 'hex'), Number(process.argv[3])) );
 } catch(err) {}
-
