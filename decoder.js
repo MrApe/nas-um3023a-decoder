@@ -7,23 +7,28 @@
  * See LICENCE file for details. 
  */
 
-function Decoder(bytes, fport) {
+function Decoder(b, fport) {
 	var decoded = {};
+	var bytes = Array.from(b);
 	switch (fport) {
 		case 24: //status
-			decoded = decode_status(bytes);
+			decoded = decode_status(bytes.slice());
+			decoded.type="status;"
 			break;
 		case 25: //usage
-			decoded = decode_usage(bytes);
+			decoded = decode_usage(bytes.slice());
+			decoded.type="usage";
 			break;
 		case 49: //config_request
-			decoded = decode_config_request(bytes);
+			decoded = decode_config_request(bytes.slice());
+			decoded.type="config_request";
 			break;
 		case 99: //debug_boot
-			decoded = decode_debug_boot(bytes);
+			decoded = decode_debug_boot(bytes.slice());
+			decoded.type="debug_boot";
 			break;
 	}
-	decoded.bytes = bytes;
+	decoded.bytes = bufferToHex(b);
 	decoded.fport = fport;
 	return decoded;
 }
@@ -72,11 +77,12 @@ function decode_usage(bytes) {
 			case 5: decoded[reported_inputs[input]+"_medium_type_string"] = "heat_Wh"; break;
 			default: decoded[reported_inputs[input]+"_medium_type_string"] = ""; break;
 		}
-		const payload_size = inputs[reported_inputs[input]].payload_size;
-		const input_nr =  + 1;
-		const from = 2 + ( Number(input) * payload_size ) + Number(input);
-		const to = from + payload_size;
-		const value = Buffer.from(bytes.slice(from, to)).readUInt32LE();
+		var payload_size = inputs[reported_inputs[input]].payload_size;
+		var from = 2 + ( Number(input) * payload_size ) + Number(input);
+		var to = from + payload_size;
+		var hex = bytes.slice(from, to);
+		var value = parseInt(bufferToHex(hex.reverse()),16);
+		
 		decoded[reported_inputs[input]] = value;
 	}
 	
@@ -109,6 +115,12 @@ function bcdtonumber(bytes) {
 		m *= 100;
 	}
 	return num;
+}
+
+function bufferToHex(buffer) {
+    var s = '', h = '0123456789ABCDEF';
+    (new Uint8Array(buffer)).forEach((v) => { s += h[v >> 4] + h[v & 15]; });
+    return s;
 }
 
 function bytestofloat16(bytes) {
