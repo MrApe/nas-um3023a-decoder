@@ -10,24 +10,42 @@
 
 
 function Encoder(fport, downlink, variables) {
-	var encoded = [];
+	var bytes = [];
 	switch (fport) {
 		case 49: //config_request
-			encoded = encode_config_request(downlink);
+			bytes = encode_config_request(downlink);
 			break;
 		case 50: //config_request
-			encoded = encode_configuration(downlink);
+			bytes = encode_configuration(downlink);
 			break;
 		case 51: //config_request
-			encoded = encode_update_mode(downlink);
+			bytes = encode_update_mode(downlink);
 			break;
 		default: ;;
+	}
+	var encoded = [];
+	for (var i in bytes) {
+		encoded.push(Number(bytes[i]));
 	}
 	return encoded;
 }
 
 function is_set_in(key,obj) {
 	return ( typeof obj[key] !== 'undefined' );
+}
+
+function get_bool(key, obj) {
+	return (
+				typeof obj[key] !== 'undefined' &&
+				( 
+					(obj[key]==="true" ) ||
+					(obj[key]==="t" ) ||
+					(obj[key]==="yes" ) ||
+					(obj[key]==="true" ) ||
+					(obj[key]===1 ) ||
+					(obj[key]===true )
+				)
+		);
 }
 
 function encode_config_request(downlink) {
@@ -68,11 +86,11 @@ function encode_general_configuration(downlink) {
 	configuration.push(header_byte);
 
 	// Configuration (Byte 1)
-	var usage_interval_sent = ( is_set_in("usage_interval_sent", downlink) 
+	var usage_interval_sent = ( get_bool("usage_interval_sent", downlink) 
 						   && is_set_in("usage_interval", downlink) );
-	var status_interval_sent = ( is_set_in("status_interval_sent", downlink) 
+	var status_interval_sent = ( get_bool("status_interval_sent", downlink) 
 						 	&& is_set_in("status_interval", downlink) );
-	var usage_config_sent = is_set_in("usage_config_sent", downlink);
+	var usage_config_sent = get_bool("usage_config_sent", downlink);
 	
 	var configuration_byte = usage_interval_sent;
 	configuration_byte <<= 1;
@@ -94,7 +112,7 @@ function encode_general_configuration(downlink) {
 
 	// Usage Config (Byte 6)
 	if (usage_config_sent) {
-		var usage_config_byte = downlink.usage_without_new_data == true;
+		var usage_config_byte = get_bool("usage_without_new_data", downlink);
 		configuration.push(usage_config_byte);
 	}
 
@@ -176,7 +194,7 @@ if (typeof process.argv[3] !== 'undefined' && process.argv[3] ) {
 	fPort = Number(process.argv[3]);
 }
 console.log("Downlink:")
-console.log (downlink);
+console.info (downlink);
 console.log ("fPort:" + fPort);
 console.log();
 
