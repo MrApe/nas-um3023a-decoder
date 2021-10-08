@@ -9,52 +9,145 @@
 
 
 
-function Encoder(fport, obj, variables) {
+function Encoder(fport, downlink, variables) {
 	var encoded = [];
 	switch (fport) {
 		case 49: //config_request
-			encoded = encode_config_request(obj);
+			encoded = encode_config_request(downlink);
 			break;
 		case 50: //config_request
-			encoded = encode_configuration(obj);
+			encoded = encode_configuration(downlink);
 			break;
 		case 51: //config_request
-			encoded = encode_update_mode(obj);
+			encoded = encode_update_mode(downlink);
 			break;
 		default: ;;
 	}
 	return encoded;
 }
 
-function encode_config_request(bytes) {
-	//always request "general_config_request" except a 
-	// "reporting_config_request" is directly request 
-	if ( typeof bytes.reporting_config_request !== 'undefined' 
-			&&  bytes.reporting_config_request ) {
+function is_set_in(key,obj) {
+	return ( typeof obj[key] !== 'undefined' );
+}
+
+function encode_config_request(downlink) {
+	//always request "general_config_request" except request is of type 
+	// "reporting_config_request"
+	if ( is_reporting_config_request(downlink) ) {
 		return [0];
 	} else {
 		return [1];
 	} 
 }
 
-function encode_configuration(obj) {
+function is_reporting_config_request(downlink) {
+	return (
+		typeof downlink.type !== 'undefined' 
+		   &&  downlink.type == "reporting_config_request"
+		);
+}
+
+function encode_configuration(downlink) {
+	var conf = [];
+	if (is_general_configuration(downlink)) 
+	{
+		conf = encode_general_configuration(downlink);
+	}
+
+	if (is_interface_configuration(downlink)) 
+	{
+		conf = encode_interface_configuration(downlink);
+	}
+	return conf;
+}
+
+function encode_general_configuration(downlink) {
+	var configuration = [];
+	// Header (Byte 0): fixed to 0x00
+	var header_byte = 0;
+	configuration.push(header_byte);
+
+	// Configuration (Byte 1)
+	var usage_interval_sent = ( is_set_in("usage_interval_sent", downlink) 
+						   && is_set_in("usage_interval", downlink) );
+	var status_interval_sent = ( is_set_in("status_interval_sent", downlink) 
+						 	&& is_set_in("status_interval", downlink) );
+	var usage_config_sent = is_set_in("usage_config_sent", downlink);
+	
+	var configuration_byte = usage_interval_sent;
+	configuration_byte <<= 1;
+	configuration_byte |= status_interval_sent;
+	configuration_byte <<= 1;
+	configuration_byte |= usage_config_sent;
+
+	configuration.push(configuration_byte);
+
+	// Usage Interval (Bytes 2-3) in min
+	if (usage_interval_sent) {
+		push_interval_into(downlink.usage_interval, configuration);
+	}
+
+	// Status Interval (Bytes 4-5) in min
+	if (status_interval_sent) {
+		push_interval_into(downlink.status_interval, configuration);
+	}
+
+	// Usage Config (Byte 6)
+	if (usage_config_sent) {
+		var usage_config_byte = downlink.usage_without_new_data == true;
+		configuration.push(usage_config_byte);
+	}
+
+	return configuration;
+}
+
+function push_interval_into(num, bytes) {
+	var interval = num > 65535 ? 65535 : num;
+	interval_byte_1 = interval & 0xff;
+	bytes.push(interval_byte_1);
+	interval_byte_2 = interval >> 8;
+	bytes.push(interval_byte_2);
+}
+
+function encode_interface_configuration(downlink) {
+	var interface_configuration = [];
+	return interface_configuration;	
+}
+
+function is_general_configuration(downlink) {
+	return (
+		typeof downlink.type !== 'undefined' 
+		   &&  downlink.type == "general_configuration"
+		);
+}
+
+function is_interface_configuration(downlink) {
+	return (
+		typeof downlink.type !== 'undefined' 
+		   &&  downlink.type == "interface_configuration"
+		);
+}
+
+function encode_update_mode(downlink) {
 	var encoded = [];
 
 	return encoded;
 }
 
-function encode_update_mode(obj) {
+function encode_debug_boot(downlink) {
 	var encoded = [];
 
 	return encoded;
 }
 
-function encode_debug_boot(obj) {
-	var encoded = [];
-
-	return encoded;
+function bufferToHex(buffer, group) {
+    var s = '', h = '0123456789ABCDEF';
+    for (var byte = 0; byte < buffer.length; byte++) {
+		s += h[buffer[byte] >> 4] + h[buffer[byte] & 15];
+		s += group?" ":"";
+	};
+    return s;
 }
-
 
 // Encode encodes the given object into an array of bytes.
 //  - fPort contains the LoRaWAN fPort number
@@ -82,10 +175,24 @@ var fPort = 49;
 if (typeof process.argv[3] !== 'undefined' && process.argv[3] ) {
 	fPort = Number(process.argv[3]);
 }
+console.log("Downlink:")
 console.log (downlink);
-console.log (fPort);
+console.log ("fPort:" + fPort);
+console.log();
 
-console.log(Encoder(fPort, downlink));
+var bytes = Encoder(fPort, downlink);
 
+console.log("bytes: " + bytes);
+console.log("bytes (bin):");
+console.log("  [");
+for (var index in bytes ) {
+	console.log("    " 
+		        + Number(bytes[index]).toString(2).padStart(8, '0') 
+		        + (index==bytes.length-1?"":",")
+		       );
+}
+console.log("  ]");
+
+console.log("bytes (hex): " + bufferToHex(bytes,true));
 } catch(err) {}
 
