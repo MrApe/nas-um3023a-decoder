@@ -1,0 +1,9 @@
+{
+  "type" : "general_configuration",
+  "usage_interval_sent" : true,
+  "status_interval_sent": true,
+  "usage_config_sent": true,
+  "usage_interval" : 60,
+  "status_interval" : 120,
+  "usage_without_new_data" : true
+}
