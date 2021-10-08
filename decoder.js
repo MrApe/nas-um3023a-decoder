@@ -72,11 +72,10 @@ function decode_usage(bytes) {
 			case 5: decoded[reported_inputs[input]+"_medium_type_string"] = "heat_Wh"; break;
 			default: decoded[reported_inputs[input]+"_medium_type_string"] = ""; break;
 		}
-		const payload_size = inputs[reported_inputs[input]].payload_size;
-		const input_nr =  + 1;
-		const from = 2 + ( Number(input) * payload_size ) + Number(input);
-		const to = from + payload_size;
-		const value = Buffer.from(bytes.slice(from, to)).readUInt32LE();
+		var payload_size = inputs[reported_inputs[input]].payload_size;
+		var from = 2 + ( Number(input) * payload_size ) + Number(input);
+		var to = from + payload_size;
+		var value = Buffer.from(bytes.slice(from, to)).readUInt32LE();
 		decoded[reported_inputs[input]] = value;
 	}
 	
