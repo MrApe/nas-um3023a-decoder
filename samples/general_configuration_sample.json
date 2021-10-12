@@ -2,7 +2,7 @@
   "type" : "general_configuration",
   "usage_interval_sent" : true,
   "status_interval_sent": "true",
-  "usage_config_sent": "true",
+  "usage_config_sent": "false",
   "usage_interval" : 300,
   "status_interval" : "10",
   "usage_without_new_data" : "true"
