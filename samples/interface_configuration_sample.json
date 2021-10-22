@@ -1,10 +1,11 @@
 {
   "type" : "interface_configuration",
-  "digital_1_reported": true,
-  "analog_2_reporting": "true",
-  "digital_1_interface_enable": 1,
+  "digital_1_reported" : true,
+  "analog_2_reporting" : "true",
+  "digital_1_interface_enable" : 1,
   "digital_1_divider" : 10,
   "digital_1_reading" : 1058618,
   "digital_1_Medium_type" : "Gas in L",
-  "digital_1_operational_mode" : "Pulse"
+  "digital_1_operational_mode" : "Pulse",
+  "digital_1_reading_mode" : "absolute"
 }

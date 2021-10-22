@@ -63,9 +63,9 @@ function is_set_in(key,obj) {
 }
 
 function get(key, object) {
-  return object[Object.keys(object)
-	.find(k => k.toLowerCase() === key.toLowerCase())
-	];
+	return object[Object.keys(object).filter(function(k) {
+		return k.toLowerCase() === key.toLowerCase();
+	})[0]];
 }
 
 function get_bool(key, obj) {
@@ -166,8 +166,8 @@ function push_int16_into(num, bytes) {
 	bytes.push( (value & 0xff00) >> 8);
 }
 
-function push_uint32_into(num, bytes, max = 0) {
-	var int_max = max==0 ? 4294967295 : max;
+function push_uint32_into(num, bytes, max) {
+	var int_max = (typeof max == "undefined") ? 4294967295 : max;
 	var value = num > int_max ? int_max : num;
 	bytes.push(value & 0xff);
 	bytes.push( (value & 0xff00) >> 8);
@@ -285,19 +285,19 @@ function push_digital_interface_configuration_into(downlink, interface, config) 
 
 }
 
-function parse_from_valueset(value, valueset, bit_length = 0) {
+function parse_from_valueset(value, valueset, bit_length) {
 	if ( typeof value == "undefined" ) return 0;
 
 	if (!isNaN(value)) {
 		var absolute = Number(value);
-		if (bit_length) {
-			var max = (bit_length ** 2 - 1);
+		if (typeof bit_length != "undefined" && !isNaN(bit_length)) {
+			var max = (Math.pow(bit_length, 2) - 1);
 			absolute = absolute > max ? max : absolute;
 		}
 		return absolute;
 	} else {
 	   for (var index in valueset) {
-		if (valueset[index].includes(value.toLowerCase())) return index;
+		if (valueset[index].indexOf(value.toLowerCase()) >= 0) return index;
 	   }
 	}
 
